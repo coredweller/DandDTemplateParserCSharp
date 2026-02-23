@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <WarningsAsErrors />
+    <Deterministic>true</Deterministic>
+    <RootNamespace>DandDTemplateParserCSharp</RootNamespace>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <!--
+      CA1848: LoggerMessage delegates are a micro-optimisation for high-throughput hot paths.
+              The extension-method API is intentionally used here for readability in this scaffold.
+      CA1000: Result<T>.Success/Failure are static factory methods on a generic type — an
+              established pattern that does not warrant a non-generic companion class here.
+      CA1305: Serilog's WriteTo.Console() does not accept IFormatProvider;
+              suppress the false-positive from the Roslyn analyser.
+    -->
+    <NoWarn>CA1848;CA1000;CA1305</NoWarn>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- HTTP / hosting -->
+    <PackageReference Include="Serilog.AspNetCore"              Version="8.0.3" />
+    <PackageReference Include="Serilog.Sinks.Console"           Version="6.0.0" />
+    <!-- Dapper + DB -->
+    <PackageReference Include="Dapper"                          Version="2.1.35" />
+    <PackageReference Include="Microsoft.Data.SqlClient"        Version="5.2.2" />
+    <!-- Validation -->
+    <PackageReference Include="FluentValidation.AspNetCore"     Version="11.3.0" />
+    <!-- OpenAPI -->
+    <PackageReference Include="Swashbuckle.AspNetCore"          Version="6.9.0" />
+  </ItemGroup>
+
+</Project>
