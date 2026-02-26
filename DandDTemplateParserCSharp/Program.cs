@@ -39,6 +39,8 @@ try
     // ── Application services ───────────────────────────────────
     builder.Services.AddScoped<ITaskRepository, DapperTaskRepository>();
     builder.Services.AddScoped<ITaskService, TaskService>();
+    builder.Services.AddScoped<ICharacterSheetRepository, CharacterSheetRepository>();
+    builder.Services.AddScoped<ICharacterSheetService, CharacterSheetService>();
 
     // ── Health checks ──────────────────────────────────────────
     builder.Services.AddHealthChecks();
