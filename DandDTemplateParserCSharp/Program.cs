@@ -37,8 +37,6 @@ try
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
     // ── Application services ───────────────────────────────────
-    builder.Services.AddScoped<ITaskRepository, DapperTaskRepository>();
-    builder.Services.AddScoped<ITaskService, TaskService>();
     builder.Services.AddScoped<ICharacterSheetRepository, CharacterSheetRepository>();
     builder.Services.AddScoped<ICharacterSheetService, CharacterSheetService>();
 
