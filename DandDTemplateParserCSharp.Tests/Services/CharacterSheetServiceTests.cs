@@ -1,8 +1,6 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
-using NSubstitute.ExceptionExtensions;
-using NSubstitute.ReturnsExtensions;
 using Xunit;
 using DandDTemplateParserCSharp.Controllers;
 using DandDTemplateParserCSharp.Domain;
@@ -19,6 +17,11 @@ public sealed class CharacterSheetServiceTests
 
     public CharacterSheetServiceTests()
     {
+        // Default: all repository operations succeed
+        _repository.SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>())
+                   .Returns(c => Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Success(
+                       c.Arg<CharacterSheetRender>()));
+
         _sut = new CharacterSheetService(
             _repository,
             new GeneralSheetRequestValidator(),
@@ -125,7 +128,8 @@ public sealed class CharacterSheetServiceTests
     public async Task GetByIdAsync_WhenRenderExists_ReturnsSuccess()
     {
         var render = CharacterSheetRender.Create("general", "Hero", 5, "<html/>");
-        _repository.GetByIdAsync(render.Id).Returns(render);
+        _repository.GetByIdAsync(render.Id, Arg.Any<CancellationToken>())
+                   .Returns(Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Success(render));
 
         var result = await _sut.GetByIdAsync(render.Id);
 
@@ -137,7 +141,8 @@ public sealed class CharacterSheetServiceTests
     public async Task GetByIdAsync_WhenRenderMissing_ReturnsNotFoundWithCorrectId()
     {
         var id = Guid.NewGuid();
-        _repository.GetByIdAsync(id).ReturnsNull();
+        _repository.GetByIdAsync(id, Arg.Any<CancellationToken>())
+                   .Returns(Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Success(null));
 
         var result = await _sut.GetByIdAsync(id);
 
@@ -152,7 +157,7 @@ public sealed class CharacterSheetServiceTests
     public async Task GetByLevelAsync_WithValidLevel_ReturnsSuccess()
     {
         _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
-                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetByLevelAsync(5);
 
@@ -164,7 +169,7 @@ public sealed class CharacterSheetServiceTests
     {
         var summary = new CharacterSheetSummary(Guid.NewGuid(), "general", "Hero", 5, DateTime.UtcNow);
         _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
-                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([summary]));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([summary]));
 
         var result = await _sut.GetByLevelAsync(5);
 
@@ -192,7 +197,7 @@ public sealed class CharacterSheetServiceTests
     public async Task GetBySheetTypeAsync_WithValidSheetType_ReturnsSuccess(string sheetType)
     {
         _repository.GetBySheetTypeAsync(sheetType, Arg.Any<CancellationToken>())
-                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetBySheetTypeAsync(sheetType);
 
@@ -205,7 +210,7 @@ public sealed class CharacterSheetServiceTests
     public async Task GetBySheetTypeAsync_NormalizesSheetTypeToLowercase(string input, string normalized)
     {
         _repository.GetBySheetTypeAsync(normalized, Arg.Any<CancellationToken>())
-                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetBySheetTypeAsync(input);
 
@@ -226,13 +231,14 @@ public sealed class CharacterSheetServiceTests
         await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
     }
 
-    // ── DatabaseError (repository throws) ───────────────────────────────────
+    // ── DatabaseError (repository returns failure) ───────────────────────────
 
     [Fact]
-    public async Task RenderGeneralAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    public async Task RenderGeneralAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
         _repository.SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>())
-                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+                   .Returns(Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Failure(
+                       new CharacterSheetError.DatabaseError("A database error occurred.")));
 
         var result = await _sut.RenderGeneralAsync(ValidGeneral());
 
@@ -241,10 +247,11 @@ public sealed class CharacterSheetServiceTests
     }
 
     [Fact]
-    public async Task RenderLegendaryAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    public async Task RenderLegendaryAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
         _repository.SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>())
-                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+                   .Returns(Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Failure(
+                       new CharacterSheetError.DatabaseError("A database error occurred.")));
 
         var result = await _sut.RenderLegendaryAsync(ValidLegendary());
 
@@ -253,10 +260,11 @@ public sealed class CharacterSheetServiceTests
     }
 
     [Fact]
-    public async Task GetByIdAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    public async Task GetByIdAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
         _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
-                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+                   .Returns(Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Failure(
+                       new CharacterSheetError.DatabaseError("A database error occurred.")));
 
         var result = await _sut.GetByIdAsync(Guid.NewGuid());
 
@@ -265,10 +273,11 @@ public sealed class CharacterSheetServiceTests
     }
 
     [Fact]
-    public async Task GetByLevelAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    public async Task GetByLevelAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
         _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
-                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
+                       new CharacterSheetError.DatabaseError("A database error occurred.")));
 
         var result = await _sut.GetByLevelAsync(5);
 
@@ -277,10 +286,11 @@ public sealed class CharacterSheetServiceTests
     }
 
     [Fact]
-    public async Task GetBySheetTypeAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    public async Task GetBySheetTypeAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
         _repository.GetBySheetTypeAsync("general", Arg.Any<CancellationToken>())
-                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+                   .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
+                       new CharacterSheetError.DatabaseError("A database error occurred.")));
 
         var result = await _sut.GetBySheetTypeAsync("general");
 

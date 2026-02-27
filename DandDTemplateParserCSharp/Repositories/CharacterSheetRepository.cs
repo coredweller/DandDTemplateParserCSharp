@@ -14,33 +14,43 @@ public sealed class CharacterSheetRepository(
 {
     private readonly string _connectionString = dbOptions.Value.ConnectionString;
 
-    public async Task<CharacterSheetRender> SaveAsync(CharacterSheetRender render, CancellationToken ct = default)
+    public async Task<Result<CharacterSheetRender, CharacterSheetError.DatabaseError>> SaveAsync(
+        CharacterSheetRender render, CancellationToken ct = default)
     {
         const string sql = """
             INSERT INTO character_sheet_renders (id, sheet_type, character_name, level, response_html, created_at)
             VALUES (@Id, @SheetType, @CharacterName, @Level, @ResponseHtml, @CreatedAt)
             """;
 
-        await using var conn = new SqlConnection(_connectionString);
+        try
+        {
+            await using var conn = new SqlConnection(_connectionString);
+            logger.LogDebug("Saving character sheet render {RenderId}", render.Id);
+            await conn.ExecuteAsync(new CommandDefinition(
+                sql,
+                new
+                {
+                    Id            = render.Id.ToString(),
+                    render.SheetType,
+                    render.CharacterName,
+                    render.Level,
+                    render.ResponseHtml,
+                    render.CreatedAt
+                },
+                cancellationToken: ct));
 
-        logger.LogDebug("Saving character sheet render {RenderId}", render.Id);
-        await conn.ExecuteAsync(new CommandDefinition(
-            sql,
-            new
-            {
-                Id            = render.Id.ToString(),
-                render.SheetType,
-                render.CharacterName,
-                render.Level,
-                render.ResponseHtml,
-                render.CreatedAt
-            },
-            cancellationToken: ct));
-
-        return render;
+            return Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Success(render);
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to save character sheet render {RenderId}", render.Id);
+            return Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Failure(
+                new CharacterSheetError.DatabaseError("A database error occurred."));
+        }
     }
 
-    public async Task<CharacterSheetRender?> GetByIdAsync(Guid id, CancellationToken ct = default)
+    public async Task<Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>> GetByIdAsync(
+        Guid id, CancellationToken ct = default)
     {
         const string sql = """
             SELECT id, sheet_type, character_name, level, response_html, created_at
@@ -48,15 +58,25 @@ public sealed class CharacterSheetRepository(
             WHERE id = @Id
             """;
 
-        await using var conn = new SqlConnection(_connectionString);
+        try
+        {
+            await using var conn = new SqlConnection(_connectionString);
+            var row = await conn.QuerySingleOrDefaultAsync<RenderRow>(
+                new CommandDefinition(sql, new { Id = id.ToString() }, cancellationToken: ct));
 
-        var row = await conn.QuerySingleOrDefaultAsync<RenderRow>(
-            new CommandDefinition(sql, new { Id = id.ToString() }, cancellationToken: ct));
-
-        return row is null ? null : Map(row);
+            return Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Success(
+                row is null ? null : Map(row));
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve character sheet render {RenderId}", id);
+            return Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Failure(
+                new CharacterSheetError.DatabaseError("A database error occurred."));
+        }
     }
 
-    public async Task<IReadOnlyList<CharacterSheetSummary>> GetByLevelAsync(int level, CancellationToken ct = default)
+    public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetByLevelAsync(
+        int level, CancellationToken ct = default)
     {
         const string sql = """
             SELECT id, sheet_type, character_name, level, created_at
@@ -65,15 +85,25 @@ public sealed class CharacterSheetRepository(
             ORDER BY created_at DESC
             """;
 
-        await using var conn = new SqlConnection(_connectionString);
+        try
+        {
+            await using var conn = new SqlConnection(_connectionString);
+            var rows = await conn.QueryAsync<SummaryRow>(
+                new CommandDefinition(sql, new { Level = level }, cancellationToken: ct));
 
-        var rows = await conn.QueryAsync<SummaryRow>(
-            new CommandDefinition(sql, new { Level = level }, cancellationToken: ct));
-
-        return rows.Select(MapToSummary).ToList();
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(
+                rows.Select(MapToSummary).ToList());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve renders for level {Level}", level);
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
+                new CharacterSheetError.DatabaseError("A database error occurred."));
+        }
     }
 
-    public async Task<IReadOnlyList<CharacterSheetSummary>> GetBySheetTypeAsync(string sheetType, CancellationToken ct = default)
+    public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetBySheetTypeAsync(
+        string sheetType, CancellationToken ct = default)
     {
         const string sql = """
             SELECT id, sheet_type, character_name, level, created_at
@@ -82,12 +112,21 @@ public sealed class CharacterSheetRepository(
             ORDER BY created_at DESC
             """;
 
-        await using var conn = new SqlConnection(_connectionString);
+        try
+        {
+            await using var conn = new SqlConnection(_connectionString);
+            var rows = await conn.QueryAsync<SummaryRow>(
+                new CommandDefinition(sql, new { SheetType = sheetType }, cancellationToken: ct));
 
-        var rows = await conn.QueryAsync<SummaryRow>(
-            new CommandDefinition(sql, new { SheetType = sheetType }, cancellationToken: ct));
-
-        return rows.Select(MapToSummary).ToList();
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(
+                rows.Select(MapToSummary).ToList());
+        }
+        catch (Exception ex)
+        {
+            logger.LogError(ex, "Failed to retrieve renders for sheet type '{SheetType}'", sheetType);
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
+                new CharacterSheetError.DatabaseError("A database error occurred."));
+        }
     }
 
     private static CharacterSheetRender Map(RenderRow r) =>

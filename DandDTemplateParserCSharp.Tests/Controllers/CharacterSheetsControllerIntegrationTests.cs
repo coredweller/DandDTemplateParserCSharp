@@ -42,33 +42,38 @@ public sealed class InMemoryCharacterSheetRepository : ICharacterSheetRepository
 {
     private readonly Dictionary<Guid, CharacterSheetRender> _store = [];
 
-    public Task<CharacterSheetRender> SaveAsync(CharacterSheetRender render, CancellationToken ct = default)
+    public Task<Result<CharacterSheetRender, CharacterSheetError.DatabaseError>> SaveAsync(
+        CharacterSheetRender render, CancellationToken ct = default)
     {
         _store[render.Id] = render;
-        return Task.FromResult(render);
+        return Task.FromResult(Result<CharacterSheetRender, CharacterSheetError.DatabaseError>.Success(render));
     }
 
-    public Task<CharacterSheetRender?> GetByIdAsync(Guid id, CancellationToken ct = default)
-        => Task.FromResult(_store.GetValueOrDefault(id));
+    public Task<Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>> GetByIdAsync(
+        Guid id, CancellationToken ct = default)
+        => Task.FromResult(Result<CharacterSheetRender?, CharacterSheetError.DatabaseError>.Success(
+            _store.GetValueOrDefault(id)));
 
-    public Task<IReadOnlyList<CharacterSheetSummary>> GetByLevelAsync(int level, CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetByLevelAsync(
+        int level, CancellationToken ct = default)
     {
         IReadOnlyList<CharacterSheetSummary> results = _store.Values
             .Where(r => r.Level == level)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
             .ToList();
-        return Task.FromResult(results);
+        return Task.FromResult(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(results));
     }
 
-    public Task<IReadOnlyList<CharacterSheetSummary>> GetBySheetTypeAsync(string sheetType, CancellationToken ct = default)
+    public Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetBySheetTypeAsync(
+        string sheetType, CancellationToken ct = default)
     {
         IReadOnlyList<CharacterSheetSummary> results = _store.Values
             .Where(r => r.SheetType == sheetType)
             .OrderByDescending(r => r.CreatedAt)
             .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
             .ToList();
-        return Task.FromResult(results);
+        return Task.FromResult(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(results));
     }
 }
 

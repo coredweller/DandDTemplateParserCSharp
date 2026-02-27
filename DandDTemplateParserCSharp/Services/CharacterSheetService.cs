@@ -26,16 +26,9 @@ public sealed class CharacterSheetService(
         var html   = CharacterSheetHtmlBuilder.BuildGeneral(request);
         var render = CharacterSheetRender.Create("general", request.CharacterName, request.Level, html);
 
-        try
-        {
-            await repository.SaveAsync(render, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to save general sheet render {RenderId}", render.Id);
-            return Result<CharacterSheetRender, CharacterSheetError>.Failure(
-                new CharacterSheetError.DatabaseError("A database error occurred."));
-        }
+        var saveResult = await repository.SaveAsync(render, ct);
+        if (saveResult.IsFailure)
+            return Result<CharacterSheetRender, CharacterSheetError>.Failure(saveResult.Error);
 
         logger.LogInformation("Rendered general sheet {RenderId} for '{CharacterName}'",
             render.Id, render.CharacterName);
@@ -57,16 +50,9 @@ public sealed class CharacterSheetService(
         var html   = CharacterSheetHtmlBuilder.BuildLegendary(request);
         var render = CharacterSheetRender.Create("legendary", request.CharacterName, request.Level, html);
 
-        try
-        {
-            await repository.SaveAsync(render, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to save legendary sheet render {RenderId}", render.Id);
-            return Result<CharacterSheetRender, CharacterSheetError>.Failure(
-                new CharacterSheetError.DatabaseError("A database error occurred."));
-        }
+        var saveResult = await repository.SaveAsync(render, ct);
+        if (saveResult.IsFailure)
+            return Result<CharacterSheetRender, CharacterSheetError>.Failure(saveResult.Error);
 
         logger.LogInformation("Rendered legendary sheet {RenderId} for '{CharacterName}'",
             render.Id, render.CharacterName);
@@ -77,26 +63,18 @@ public sealed class CharacterSheetService(
     public async Task<Result<CharacterSheetRender, CharacterSheetError>> GetByIdAsync(
         Guid id, CancellationToken ct = default)
     {
-        CharacterSheetRender? render;
-        try
-        {
-            render = await repository.GetByIdAsync(id, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to retrieve render {RenderId}", id);
-            return Result<CharacterSheetRender, CharacterSheetError>.Failure(
-                new CharacterSheetError.DatabaseError("A database error occurred."));
-        }
+        var dbResult = await repository.GetByIdAsync(id, ct);
+        if (dbResult.IsFailure)
+            return Result<CharacterSheetRender, CharacterSheetError>.Failure(dbResult.Error);
 
-        if (render is null)
+        if (dbResult.Value is null)
         {
             logger.LogWarning("Character sheet render {RenderId} not found", id);
             return Result<CharacterSheetRender, CharacterSheetError>.Failure(
                 new CharacterSheetError.NotFound(id));
         }
 
-        return Result<CharacterSheetRender, CharacterSheetError>.Success(render);
+        return Result<CharacterSheetRender, CharacterSheetError>.Success(dbResult.Value);
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetByLevelAsync(
@@ -106,20 +84,12 @@ public sealed class CharacterSheetService(
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
                 new CharacterSheetError.ValidationError("Level must be between 1 and 20."));
 
-        IReadOnlyList<CharacterSheetSummary> results;
-        try
-        {
-            results = await repository.GetByLevelAsync(level, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to retrieve renders for level {Level}", level);
-            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
-                new CharacterSheetError.DatabaseError("A database error occurred."));
-        }
+        var dbResult = await repository.GetByLevelAsync(level, ct);
+        if (dbResult.IsFailure)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(dbResult.Error);
 
-        logger.LogDebug("Found {Count} renders for level {Level}", results.Count, level);
-        return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(results);
+        logger.LogDebug("Found {Count} renders for level {Level}", dbResult.Value.Count, level);
+        return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(dbResult.Value);
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetBySheetTypeAsync(
@@ -130,19 +100,11 @@ public sealed class CharacterSheetService(
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
                 new CharacterSheetError.ValidationError("sheetType must be 'general' or 'legendary'."));
 
-        IReadOnlyList<CharacterSheetSummary> results;
-        try
-        {
-            results = await repository.GetBySheetTypeAsync(normalized, ct);
-        }
-        catch (Exception ex)
-        {
-            logger.LogError(ex, "Failed to retrieve renders for sheet type '{SheetType}'", normalized);
-            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
-                new CharacterSheetError.DatabaseError("A database error occurred."));
-        }
+        var dbResult = await repository.GetBySheetTypeAsync(normalized, ct);
+        if (dbResult.IsFailure)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(dbResult.Error);
 
-        logger.LogDebug("Found {Count} renders for sheet type '{SheetType}'", results.Count, normalized);
-        return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(results);
+        logger.LogDebug("Found {Count} renders for sheet type '{SheetType}'", dbResult.Value.Count, normalized);
+        return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(dbResult.Value);
     }
 }
