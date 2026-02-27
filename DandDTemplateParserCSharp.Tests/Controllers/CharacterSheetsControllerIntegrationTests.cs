@@ -55,22 +55,26 @@ public sealed class InMemoryCharacterSheetRepository : ICharacterSheetRepository
             _store.GetValueOrDefault(id)));
 
     public Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetByLevelAsync(
-        int level, CancellationToken ct = default)
+        int level, PageRequest page, CancellationToken ct = default)
     {
         IReadOnlyList<CharacterSheetSummary> results = _store.Values
             .Where(r => r.Level == level)
             .OrderByDescending(r => r.CreatedAt)
+            .Skip(page.Offset)
+            .Take(page.PageSize)
             .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
             .ToList();
         return Task.FromResult(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(results));
     }
 
     public Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetBySheetTypeAsync(
-        string sheetType, CancellationToken ct = default)
+        string sheetType, PageRequest page, CancellationToken ct = default)
     {
         IReadOnlyList<CharacterSheetSummary> results = _store.Values
             .Where(r => r.SheetType == sheetType)
             .OrderByDescending(r => r.CreatedAt)
+            .Skip(page.Offset)
+            .Take(page.PageSize)
             .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
             .ToList();
         return Task.FromResult(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(results));

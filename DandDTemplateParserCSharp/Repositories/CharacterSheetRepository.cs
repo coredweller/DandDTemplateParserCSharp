@@ -76,20 +76,24 @@ public sealed class CharacterSheetRepository(
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetByLevelAsync(
-        int level, CancellationToken ct = default)
+        int level, PageRequest page, CancellationToken ct = default)
     {
         const string sql = """
             SELECT id, sheet_type, character_name, level, created_at
             FROM character_sheet_renders
             WHERE level = @Level
             ORDER BY created_at DESC
+            OFFSET @Offset ROWS
+            FETCH NEXT @PageSize ROWS ONLY
             """;
 
         try
         {
             await using var conn = new SqlConnection(_connectionString);
             var rows = await conn.QueryAsync<SummaryRow>(
-                new CommandDefinition(sql, new { Level = level }, cancellationToken: ct));
+                new CommandDefinition(sql,
+                    new { Level = level, page.Offset, page.PageSize },
+                    cancellationToken: ct));
 
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(
                 rows.Select(MapToSummary).ToList());
@@ -103,20 +107,24 @@ public sealed class CharacterSheetRepository(
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>> GetBySheetTypeAsync(
-        string sheetType, CancellationToken ct = default)
+        string sheetType, PageRequest page, CancellationToken ct = default)
     {
         const string sql = """
             SELECT id, sheet_type, character_name, level, created_at
             FROM character_sheet_renders
             WHERE sheet_type = @SheetType
             ORDER BY created_at DESC
+            OFFSET @Offset ROWS
+            FETCH NEXT @PageSize ROWS ONLY
             """;
 
         try
         {
             await using var conn = new SqlConnection(_connectionString);
             var rows = await conn.QueryAsync<SummaryRow>(
-                new CommandDefinition(sql, new { SheetType = sheetType }, cancellationToken: ct));
+                new CommandDefinition(sql,
+                    new { SheetType = sheetType, page.Offset, page.PageSize },
+                    cancellationToken: ct));
 
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success(
                 rows.Select(MapToSummary).ToList());

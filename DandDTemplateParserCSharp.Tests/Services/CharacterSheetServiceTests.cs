@@ -156,7 +156,7 @@ public sealed class CharacterSheetServiceTests
     [Fact]
     public async Task GetByLevelAsync_WithValidLevel_ReturnsSuccess()
     {
-        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+        _repository.GetByLevelAsync(5, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetByLevelAsync(5);
@@ -168,7 +168,7 @@ public sealed class CharacterSheetServiceTests
     public async Task GetByLevelAsync_WithValidLevel_ReturnsRepositoryResults()
     {
         var summary = new CharacterSheetSummary(Guid.NewGuid(), "general", "Hero", 5, DateTime.UtcNow);
-        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+        _repository.GetByLevelAsync(5, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([summary]));
 
         var result = await _sut.GetByLevelAsync(5);
@@ -186,7 +186,32 @@ public sealed class CharacterSheetServiceTests
 
         result.IsFailure.Should().BeTrue();
         result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
-        await _repository.DidNotReceive().GetByLevelAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetByLevelAsync(Arg.Any<int>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetByLevelAsync_WithInvalidPage_ReturnsValidationError(int page)
+    {
+        var result = await _sut.GetByLevelAsync(5, page: page);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetByLevelAsync(Arg.Any<int>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    [InlineData(-1)]
+    public async Task GetByLevelAsync_WithInvalidPageSize_ReturnsValidationError(int pageSize)
+    {
+        var result = await _sut.GetByLevelAsync(5, pageSize: pageSize);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetByLevelAsync(Arg.Any<int>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
     }
 
     // ── GetBySheetTypeAsync ─────────────────────────────────────────────────
@@ -196,7 +221,7 @@ public sealed class CharacterSheetServiceTests
     [InlineData("legendary")]
     public async Task GetBySheetTypeAsync_WithValidSheetType_ReturnsSuccess(string sheetType)
     {
-        _repository.GetBySheetTypeAsync(sheetType, Arg.Any<CancellationToken>())
+        _repository.GetBySheetTypeAsync(sheetType, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetBySheetTypeAsync(sheetType);
@@ -209,13 +234,13 @@ public sealed class CharacterSheetServiceTests
     [InlineData("LEGENDARY", "legendary")]
     public async Task GetBySheetTypeAsync_NormalizesSheetTypeToLowercase(string input, string normalized)
     {
-        _repository.GetBySheetTypeAsync(normalized, Arg.Any<CancellationToken>())
+        _repository.GetBySheetTypeAsync(normalized, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([]));
 
         var result = await _sut.GetBySheetTypeAsync(input);
 
         result.IsSuccess.Should().BeTrue();
-        await _repository.Received(1).GetBySheetTypeAsync(normalized, Arg.Any<CancellationToken>());
+        await _repository.Received(1).GetBySheetTypeAsync(normalized, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
     }
 
     [Theory]
@@ -228,7 +253,32 @@ public sealed class CharacterSheetServiceTests
 
         result.IsFailure.Should().BeTrue();
         result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
-        await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+        await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(-1)]
+    public async Task GetBySheetTypeAsync_WithInvalidPage_ReturnsValidationError(int page)
+    {
+        var result = await _sut.GetBySheetTypeAsync("general", page: page);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(101)]
+    [InlineData(-1)]
+    public async Task GetBySheetTypeAsync_WithInvalidPageSize_ReturnsValidationError(int pageSize)
+    {
+        var result = await _sut.GetBySheetTypeAsync("general", pageSize: pageSize);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<PageRequest>(), Arg.Any<CancellationToken>());
     }
 
     // ── DatabaseError (repository returns failure) ───────────────────────────
@@ -275,7 +325,7 @@ public sealed class CharacterSheetServiceTests
     [Fact]
     public async Task GetByLevelAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
-        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+        _repository.GetByLevelAsync(5, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
                        new CharacterSheetError.DatabaseError("A database error occurred.")));
 
@@ -288,7 +338,7 @@ public sealed class CharacterSheetServiceTests
     [Fact]
     public async Task GetBySheetTypeAsync_WhenRepositoryFails_ReturnsDatabaseError()
     {
-        _repository.GetBySheetTypeAsync("general", Arg.Any<CancellationToken>())
+        _repository.GetBySheetTypeAsync("general", Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Failure(
                        new CharacterSheetError.DatabaseError("A database error occurred.")));
 

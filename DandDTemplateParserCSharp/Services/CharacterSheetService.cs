@@ -78,33 +78,53 @@ public sealed class CharacterSheetService(
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetByLevelAsync(
-        int level, CancellationToken ct = default)
+        int level, int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
         if (level is < 1 or > 20)
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
                 new CharacterSheetError.ValidationError("Level must be between 1 and 20."));
 
-        var dbResult = await repository.GetByLevelAsync(level, ct);
+        if (page < 1)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
+                new CharacterSheetError.ValidationError("Page must be at least 1."));
+
+        if (pageSize is < 1 or > 100)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
+                new CharacterSheetError.ValidationError("PageSize must be between 1 and 100."));
+
+        var paging   = new PageRequest(page, pageSize);
+        var dbResult = await repository.GetByLevelAsync(level, paging, ct);
         if (dbResult.IsFailure)
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(dbResult.Error);
 
-        logger.LogDebug("Found {Count} renders for level {Level}", dbResult.Value.Count, level);
+        logger.LogDebug("Found {Count} renders for level {Level} (page {Page}/{PageSize})",
+            dbResult.Value.Count, level, page, pageSize);
         return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(dbResult.Value);
     }
 
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetBySheetTypeAsync(
-        string sheetType, CancellationToken ct = default)
+        string sheetType, int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
         var normalized = sheetType.Trim().ToLowerInvariant();
         if (normalized is not ("general" or "legendary"))
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
                 new CharacterSheetError.ValidationError("sheetType must be 'general' or 'legendary'."));
 
-        var dbResult = await repository.GetBySheetTypeAsync(normalized, ct);
+        if (page < 1)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
+                new CharacterSheetError.ValidationError("Page must be at least 1."));
+
+        if (pageSize is < 1 or > 100)
+            return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
+                new CharacterSheetError.ValidationError("PageSize must be between 1 and 100."));
+
+        var paging   = new PageRequest(page, pageSize);
+        var dbResult = await repository.GetBySheetTypeAsync(normalized, paging, ct);
         if (dbResult.IsFailure)
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(dbResult.Error);
 
-        logger.LogDebug("Found {Count} renders for sheet type '{SheetType}'", dbResult.Value.Count, normalized);
+        logger.LogDebug("Found {Count} renders for sheet type '{SheetType}' (page {Page}/{PageSize})",
+            dbResult.Value.Count, normalized, page, pageSize);
         return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Success(dbResult.Value);
     }
 }

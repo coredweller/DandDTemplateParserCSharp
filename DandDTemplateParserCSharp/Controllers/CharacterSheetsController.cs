@@ -46,23 +46,25 @@ public sealed class CharacterSheetsController(ICharacterSheetService service) : 
             onFailure: MapError);
     }
 
-    /// <summary>Find all renders at a given level (1–20).</summary>
+    /// <summary>Find all renders at a given level (1–20). Supports pagination via ?page=1&amp;pageSize=25 (max 100).</summary>
     [HttpGet("by-level/{level:int}")]
     [ProducesResponseType<IReadOnlyList<CharacterSheetSummary>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetByLevel(int level, CancellationToken ct)
+    public async Task<IActionResult> GetByLevel(
+        int level, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
     {
-        var result = await service.GetByLevelAsync(level, ct);
+        var result = await service.GetByLevelAsync(level, page, pageSize, ct);
         return result.Match(onSuccess: Ok, onFailure: MapError);
     }
 
-    /// <summary>Find all renders of a given sheet type ("general" or "legendary").</summary>
+    /// <summary>Find all renders of a given sheet type ("general" or "legendary"). Supports pagination via ?page=1&amp;pageSize=25 (max 100).</summary>
     [HttpGet("by-type/{sheetType}")]
     [ProducesResponseType<IReadOnlyList<CharacterSheetSummary>>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    public async Task<IActionResult> GetBySheetType(string sheetType, CancellationToken ct)
+    public async Task<IActionResult> GetBySheetType(
+        string sheetType, [FromQuery] int page = 1, [FromQuery] int pageSize = 25, CancellationToken ct = default)
     {
-        var result = await service.GetBySheetTypeAsync(sheetType, ct);
+        var result = await service.GetBySheetTypeAsync(sheetType, page, pageSize, ct);
         return result.Match(onSuccess: Ok, onFailure: MapError);
     }
 

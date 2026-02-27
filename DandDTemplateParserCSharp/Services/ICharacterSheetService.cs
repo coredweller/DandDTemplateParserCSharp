@@ -15,8 +15,8 @@ public interface ICharacterSheetService
         Guid id, CancellationToken ct = default);
 
     Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetByLevelAsync(
-        int level, CancellationToken ct = default);
+        int level, int page = 1, int pageSize = 25, CancellationToken ct = default);
 
     Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetBySheetTypeAsync(
-        string sheetType, CancellationToken ct = default);
+        string sheetType, int page = 1, int pageSize = 25, CancellationToken ct = default);
 }
