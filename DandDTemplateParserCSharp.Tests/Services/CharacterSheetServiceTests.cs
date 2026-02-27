@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Microsoft.Extensions.Logging.Abstractions;
 using NSubstitute;
+using NSubstitute.ExceptionExtensions;
 using NSubstitute.ReturnsExtensions;
 using Xunit;
 using DandDTemplateParserCSharp.Controllers;
@@ -143,6 +144,148 @@ public sealed class CharacterSheetServiceTests
         result.IsFailure.Should().BeTrue();
         result.Error.Should().BeOfType<CharacterSheetError.NotFound>();
         result.Error.As<CharacterSheetError.NotFound>().Id.Should().Be(id);
+    }
+
+    // ── GetByLevelAsync ─────────────────────────────────────────────────────
+
+    [Fact]
+    public async Task GetByLevelAsync_WithValidLevel_ReturnsSuccess()
+    {
+        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+
+        var result = await _sut.GetByLevelAsync(5);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Fact]
+    public async Task GetByLevelAsync_WithValidLevel_ReturnsRepositoryResults()
+    {
+        var summary = new CharacterSheetSummary(Guid.NewGuid(), "general", "Hero", 5, DateTime.UtcNow);
+        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([summary]));
+
+        var result = await _sut.GetByLevelAsync(5);
+
+        result.Value.Should().ContainSingle(s => s.Id == summary.Id);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(21)]
+    [InlineData(-1)]
+    public async Task GetByLevelAsync_WithInvalidLevel_ReturnsValidationError(int level)
+    {
+        var result = await _sut.GetByLevelAsync(level);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetByLevelAsync(Arg.Any<int>(), Arg.Any<CancellationToken>());
+    }
+
+    // ── GetBySheetTypeAsync ─────────────────────────────────────────────────
+
+    [Theory]
+    [InlineData("general")]
+    [InlineData("legendary")]
+    public async Task GetBySheetTypeAsync_WithValidSheetType_ReturnsSuccess(string sheetType)
+    {
+        _repository.GetBySheetTypeAsync(sheetType, Arg.Any<CancellationToken>())
+                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+
+        var result = await _sut.GetBySheetTypeAsync(sheetType);
+
+        result.IsSuccess.Should().BeTrue();
+    }
+
+    [Theory]
+    [InlineData("GENERAL",   "general")]
+    [InlineData("LEGENDARY", "legendary")]
+    public async Task GetBySheetTypeAsync_NormalizesSheetTypeToLowercase(string input, string normalized)
+    {
+        _repository.GetBySheetTypeAsync(normalized, Arg.Any<CancellationToken>())
+                   .Returns(Task.FromResult<IReadOnlyList<CharacterSheetSummary>>([]));
+
+        var result = await _sut.GetBySheetTypeAsync(input);
+
+        result.IsSuccess.Should().BeTrue();
+        await _repository.Received(1).GetBySheetTypeAsync(normalized, Arg.Any<CancellationToken>());
+    }
+
+    [Theory]
+    [InlineData("invalid")]
+    [InlineData("monster")]
+    [InlineData("")]
+    public async Task GetBySheetTypeAsync_WithInvalidSheetType_ReturnsValidationError(string sheetType)
+    {
+        var result = await _sut.GetBySheetTypeAsync(sheetType);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().GetBySheetTypeAsync(Arg.Any<string>(), Arg.Any<CancellationToken>());
+    }
+
+    // ── DatabaseError (repository throws) ───────────────────────────────────
+
+    [Fact]
+    public async Task RenderGeneralAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    {
+        _repository.SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+
+        var result = await _sut.RenderGeneralAsync(ValidGeneral());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.DatabaseError>();
+    }
+
+    [Fact]
+    public async Task RenderLegendaryAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    {
+        _repository.SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+
+        var result = await _sut.RenderLegendaryAsync(ValidLegendary());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.DatabaseError>();
+    }
+
+    [Fact]
+    public async Task GetByIdAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    {
+        _repository.GetByIdAsync(Arg.Any<Guid>(), Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+
+        var result = await _sut.GetByIdAsync(Guid.NewGuid());
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.DatabaseError>();
+    }
+
+    [Fact]
+    public async Task GetByLevelAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    {
+        _repository.GetByLevelAsync(5, Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+
+        var result = await _sut.GetByLevelAsync(5);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.DatabaseError>();
+    }
+
+    [Fact]
+    public async Task GetBySheetTypeAsync_WhenRepositoryThrows_ReturnsDatabaseError()
+    {
+        _repository.GetBySheetTypeAsync("general", Arg.Any<CancellationToken>())
+                   .ThrowsAsync(new InvalidOperationException("connection lost"));
+
+        var result = await _sut.GetBySheetTypeAsync("general");
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.DatabaseError>();
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

@@ -50,6 +50,26 @@ public sealed class InMemoryCharacterSheetRepository : ICharacterSheetRepository
 
     public Task<CharacterSheetRender?> GetByIdAsync(Guid id, CancellationToken ct = default)
         => Task.FromResult(_store.GetValueOrDefault(id));
+
+    public Task<IReadOnlyList<CharacterSheetSummary>> GetByLevelAsync(int level, CancellationToken ct = default)
+    {
+        IReadOnlyList<CharacterSheetSummary> results = _store.Values
+            .Where(r => r.Level == level)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
+            .ToList();
+        return Task.FromResult(results);
+    }
+
+    public Task<IReadOnlyList<CharacterSheetSummary>> GetBySheetTypeAsync(string sheetType, CancellationToken ct = default)
+    {
+        IReadOnlyList<CharacterSheetSummary> results = _store.Values
+            .Where(r => r.SheetType == sheetType)
+            .OrderByDescending(r => r.CreatedAt)
+            .Select(r => new CharacterSheetSummary(r.Id, r.SheetType, r.CharacterName, r.Level, r.CreatedAt))
+            .ToList();
+        return Task.FromResult(results);
+    }
 }
 
 // ── Tests ─────────────────────────────────────────────────────────────────────
@@ -167,6 +187,72 @@ public sealed class CharacterSheetsControllerIntegrationTests(ApiFactory factory
         var response = await _client.GetAsync($"/api/v1/sheets/{Guid.NewGuid()}");
 
         response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    // ── GET /api/v1/sheets/by-level/{level} ─────────────────────────────────
+
+    [Fact]
+    public async Task GetByLevel_AfterPost_ReturnsMatchingRender()
+    {
+        var request = new GeneralSheetRequest { CharacterName = "Level7Hero", Level = 7 };
+        await _client.PostAsJsonAsync("/api/v1/sheets/general", request);
+
+        var response  = await _client.GetAsync("/api/v1/sheets/by-level/7");
+        var summaries = await response.Content.ReadFromJsonAsync<List<CharacterSheetSummary>>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        summaries.Should().Contain(s => s.CharacterName == "Level7Hero" && s.Level == 7);
+    }
+
+    [Fact]
+    public async Task GetByLevel_ReturnsEmptyListWhenNoMatches()
+    {
+        var response  = await _client.GetAsync("/api/v1/sheets/by-level/13");
+        var summaries = await response.Content.ReadFromJsonAsync<List<CharacterSheetSummary>>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        summaries.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(21)]
+    public async Task GetByLevel_WithInvalidLevel_Returns400(int level)
+    {
+        var response = await _client.GetAsync($"/api/v1/sheets/by-level/{level}");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    // ── GET /api/v1/sheets/by-type/{sheetType} ──────────────────────────────
+
+    [Fact]
+    public async Task GetBySheetType_WithGeneralType_ReturnsOnlyGeneralSheets()
+    {
+        await _client.PostAsJsonAsync("/api/v1/sheets/general", ValidGeneral());
+
+        var response  = await _client.GetAsync("/api/v1/sheets/by-type/general");
+        var summaries = await response.Content.ReadFromJsonAsync<List<CharacterSheetSummary>>();
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        summaries.Should().NotBeEmpty();
+        summaries.Should().OnlyContain(s => s.SheetType == "general");
+    }
+
+    [Fact]
+    public async Task GetBySheetType_IsCaseInsensitive()
+    {
+        var response = await _client.GetAsync("/api/v1/sheets/by-type/GENERAL");
+
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    [Fact]
+    public async Task GetBySheetType_WithInvalidType_Returns400()
+    {
+        var response = await _client.GetAsync("/api/v1/sheets/by-type/invalid");
+
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
     }
 
     // ── Helpers ─────────────────────────────────────────────────────────────

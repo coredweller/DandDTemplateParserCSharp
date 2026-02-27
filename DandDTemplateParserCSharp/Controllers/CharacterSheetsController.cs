@@ -46,6 +46,26 @@ public sealed class CharacterSheetsController(ICharacterSheetService service) : 
             onFailure: MapError);
     }
 
+    /// <summary>Find all renders at a given level (1–20).</summary>
+    [HttpGet("by-level/{level:int}")]
+    [ProducesResponseType<IReadOnlyList<CharacterSheetSummary>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetByLevel(int level, CancellationToken ct)
+    {
+        var result = await service.GetByLevelAsync(level, ct);
+        return result.Match(onSuccess: Ok, onFailure: MapError);
+    }
+
+    /// <summary>Find all renders of a given sheet type ("general" or "legendary").</summary>
+    [HttpGet("by-type/{sheetType}")]
+    [ProducesResponseType<IReadOnlyList<CharacterSheetSummary>>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    public async Task<IActionResult> GetBySheetType(string sheetType, CancellationToken ct)
+    {
+        var result = await service.GetBySheetTypeAsync(sheetType, ct);
+        return result.Match(onSuccess: Ok, onFailure: MapError);
+    }
+
     // ── Result → HTTP mapping ─────────────────────────────────────────────────
 
     private ContentResult HtmlCreated(CharacterSheetRender render)
@@ -75,6 +95,16 @@ public sealed class CharacterSheetsController(ICharacterSheetService service) : 
         Instance = HttpContext.Request.Path
     };
 }
+
+// ── Response DTOs ─────────────────────────────────────────────────────────────
+
+/// <summary>Metadata-only summary — no HTML payload — used in list/search results.</summary>
+public sealed record CharacterSheetSummary(
+    Guid     Id,
+    string   SheetType,
+    string   CharacterName,
+    int      Level,
+    DateTime CreatedAt);
 
 // ── Request DTOs ──────────────────────────────────────────────────────────────
 

@@ -1,6 +1,7 @@
 using Dapper;
 using Microsoft.Data.SqlClient;
 using Microsoft.Extensions.Options;
+using DandDTemplateParserCSharp.Controllers;
 using DandDTemplateParserCSharp.Domain;
 using DandDTemplateParserCSharp.Options;
 
@@ -55,16 +56,60 @@ public sealed class CharacterSheetRepository(
         return row is null ? null : Map(row);
     }
 
+    public async Task<IReadOnlyList<CharacterSheetSummary>> GetByLevelAsync(int level, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT id, sheet_type, character_name, level, created_at
+            FROM character_sheet_renders
+            WHERE level = @Level
+            ORDER BY created_at DESC
+            """;
+
+        await using var conn = new SqlConnection(_connectionString);
+
+        var rows = await conn.QueryAsync<SummaryRow>(
+            new CommandDefinition(sql, new { Level = level }, cancellationToken: ct));
+
+        return rows.Select(MapToSummary).ToList();
+    }
+
+    public async Task<IReadOnlyList<CharacterSheetSummary>> GetBySheetTypeAsync(string sheetType, CancellationToken ct = default)
+    {
+        const string sql = """
+            SELECT id, sheet_type, character_name, level, created_at
+            FROM character_sheet_renders
+            WHERE sheet_type = @SheetType
+            ORDER BY created_at DESC
+            """;
+
+        await using var conn = new SqlConnection(_connectionString);
+
+        var rows = await conn.QueryAsync<SummaryRow>(
+            new CommandDefinition(sql, new { SheetType = sheetType }, cancellationToken: ct));
+
+        return rows.Select(MapToSummary).ToList();
+    }
+
     private static CharacterSheetRender Map(RenderRow r) =>
         CharacterSheetRender.Reconstitute(
             Guid.Parse(r.id), r.sheet_type, r.character_name, r.level, r.response_html, r.created_at);
 
-    // Private DTO — column names match DB snake_case exactly for Dapper mapping
+    private static CharacterSheetSummary MapToSummary(SummaryRow r) =>
+        new(Guid.Parse(r.id), r.sheet_type, r.character_name, r.level, r.created_at);
+
+    // Private DTOs — column names match DB snake_case exactly for Dapper mapping
     private sealed record RenderRow(
         string   id,
         string   sheet_type,
         string   character_name,
         int      level,
         string   response_html,
+        DateTime created_at);
+
+    private sealed record SummaryRow(
+        string   id,
+        string   sheet_type,
+        string   character_name,
+        int      level,
         DateTime created_at);
 }

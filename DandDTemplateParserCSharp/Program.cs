@@ -1,4 +1,5 @@
 using FluentValidation;
+using DandDTemplateParserCSharp.Middleware;
 using DandDTemplateParserCSharp.Options;
 using DandDTemplateParserCSharp.Repositories;
 using DandDTemplateParserCSharp.Services;
@@ -46,7 +47,7 @@ try
     var app = builder.Build();
 
     // ── Middleware pipeline ────────────────────────────────────
-    app.UseExceptionHandler();       // Maps unhandled exceptions to ProblemDetails
+    app.UseMiddleware<ExceptionMiddleware>();  // Catches unhandled exceptions → 500 ProblemDetails
     app.UseStatusCodePages();        // Maps 404/405 to ProblemDetails
 
     if (app.Environment.IsDevelopment())
