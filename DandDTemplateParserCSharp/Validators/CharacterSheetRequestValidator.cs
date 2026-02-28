@@ -1,5 +1,5 @@
 using FluentValidation;
-using DandDTemplateParserCSharp.Controllers;
+using DandDTemplateParserCSharp.Domain;
 
 namespace DandDTemplateParserCSharp.Validators;
 
