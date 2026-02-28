@@ -28,31 +28,39 @@ try
               .ReadFrom.Services(services)
               .Enrich.FromLogContext());
 
+    var swaggerEnabled = builder.Configuration
+        .GetSection(SwaggerOptions.Section)
+        .Get<SwaggerOptions>()?.Enabled ?? false;
+
     // ── Controllers + API explorer ─────────────────────────────
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen(options =>
+
+    if (swaggerEnabled)
     {
-        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        builder.Services.AddSwaggerGen(options =>
         {
-            In = ParameterLocation.Header,
-            Name = "Authorization",
-            Type = SecuritySchemeType.Http,
-            Scheme = "bearer",
-            BearerFormat = "JWT",
-            Description = "Enter your JWT token. Obtain it via POST /api/v1/auth/token."
-        });
-        options.AddSecurityRequirement(new OpenApiSecurityRequirement
-        {
+            options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
             {
-                new OpenApiSecurityScheme
+                In = ParameterLocation.Header,
+                Name = "Authorization",
+                Type = SecuritySchemeType.Http,
+                Scheme = "bearer",
+                BearerFormat = "JWT",
+                Description = "Enter your JWT token. Obtain it via POST /api/v1/auth/token."
+            });
+            options.AddSecurityRequirement(new OpenApiSecurityRequirement
+            {
                 {
-                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
-                },
-                Array.Empty<string>()
-            }
+                    new OpenApiSecurityScheme
+                    {
+                        Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                    },
+                    Array.Empty<string>()
+                }
+            });
         });
-    });
+    }
 
     // ── ProblemDetails (RFC 7807) ──────────────────────────────
     builder.Services.AddProblemDetails();
@@ -188,7 +196,7 @@ try
     app.UseMiddleware<ExceptionMiddleware>();  // Catches unhandled exceptions → 500 ProblemDetails
     app.UseStatusCodePages();        // Maps 404/405 to ProblemDetails
 
-    if (app.Environment.IsDevelopment())
+    if (swaggerEnabled)
     {
         app.UseSwagger();
         app.UseSwaggerUI();
