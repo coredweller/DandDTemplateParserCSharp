@@ -70,6 +70,24 @@ try
         .ValidateDataAnnotations()
         .ValidateOnStart();
 
+    // ── CORS ────────────────────────────────────────────────────
+    builder.Services.AddCors(options =>
+    {
+        var origins = builder.Configuration
+            .GetSection(CorsOptions.Section)
+            .Get<CorsOptions>()?.AllowedOrigins ?? [];
+
+        options.AddPolicy("ApiCors", policy =>
+        {
+            if (origins.Length > 0)
+                policy.WithOrigins(origins)
+                      .WithHeaders("Authorization", "Content-Type")
+                      .WithMethods("GET", "POST");
+            else
+                policy.SetIsOriginAllowed(_ => false); // deny all cross-origin by default
+        });
+    });
+
     // ── Authentication ───────────────────────────────────────
     builder.Services
         .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -184,6 +202,7 @@ try
     //    Also configure KnownProxies/KnownNetworks in ForwardedHeadersOptions.
     // app.UseForwardedHeaders();
 
+    app.UseCors("ApiCors");    // Before auth so OPTIONS preflight bypasses authentication
     app.UseAuthentication();
     app.UseRateLimiter();      // After UseAuthentication so the "authenticated" policy can read HttpContext.User
     app.UseAuthorization();
