@@ -77,11 +77,24 @@ public sealed class CharacterSheetServiceTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(31)]
     [InlineData(-1)]
     public async Task RenderGeneralAsync_WithInvalidLevel_ReturnsValidationError(int level)
     {
         var request = new GeneralSheetRequest { CharacterName = "Hero", Level = level };
+
+        var result = await _sut.RenderGeneralAsync(request);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RenderGeneralAsync_WithOversizedDictionary_ReturnsValidationError()
+    {
+        var oversized = Enumerable.Range(1, 11).ToDictionary(i => $"Key{i}", i => $"Value{i}");
+        var request   = new GeneralSheetRequest { CharacterName = "Hero", Level = 5, Actions = oversized };
 
         var result = await _sut.RenderGeneralAsync(request);
 
@@ -114,6 +127,19 @@ public sealed class CharacterSheetServiceTests
     public async Task RenderLegendaryAsync_WithBlankCharacterName_ReturnsValidationError()
     {
         var request = new LegendarySheetRequest { CharacterName = "", Level = 20 };
+
+        var result = await _sut.RenderLegendaryAsync(request);
+
+        result.IsFailure.Should().BeTrue();
+        result.Error.Should().BeOfType<CharacterSheetError.ValidationError>();
+        await _repository.DidNotReceive().SaveAsync(Arg.Any<CharacterSheetRender>(), Arg.Any<CancellationToken>());
+    }
+
+    [Fact]
+    public async Task RenderLegendaryAsync_WithOversizedDictionary_ReturnsValidationError()
+    {
+        var oversized = Enumerable.Range(1, 11).ToDictionary(i => $"Key{i}", i => $"Value{i}");
+        var request   = new LegendarySheetRequest { CharacterName = "Dragon", Level = 20, BonusActions = oversized };
 
         var result = await _sut.RenderLegendaryAsync(request);
 
@@ -178,7 +204,7 @@ public sealed class CharacterSheetServiceTests
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(31)]
     [InlineData(-1)]
     public async Task GetByLevelAsync_WithInvalidLevel_ReturnsValidationError(int level)
     {

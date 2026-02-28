@@ -193,7 +193,7 @@ public sealed class CharacterSheetsControllerIntegrationTests(ApiFactory factory
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(31)]
     public async Task PostGeneral_WithInvalidLevel_Returns400(int level)
     {
         var request = new GeneralSheetRequest { CharacterName = "Hero", Level = level };
@@ -284,7 +284,7 @@ public sealed class CharacterSheetsControllerIntegrationTests(ApiFactory factory
 
     [Theory]
     [InlineData(0)]
-    [InlineData(21)]
+    [InlineData(31)]
     public async Task GetByLevel_WithInvalidLevel_Returns400(int level)
     {
         var response = await _client.GetAsync($"/api/v1/sheets/by-level/{level}");

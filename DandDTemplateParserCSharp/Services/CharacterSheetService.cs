@@ -80,9 +80,9 @@ public sealed class CharacterSheetService(
     public async Task<Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>> GetByLevelAsync(
         int level, int page = 1, int pageSize = 25, CancellationToken ct = default)
     {
-        if (level is < 1 or > 20)
+        if (level is < 1 or > 30)
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
-                new CharacterSheetError.ValidationError("Level must be between 1 and 20."));
+                new CharacterSheetError.ValidationError("Level must be between 1 and 30."));
 
         if (page < 1)
             return Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError>.Failure(
