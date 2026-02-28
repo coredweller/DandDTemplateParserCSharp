@@ -69,3 +69,6 @@ appsettings.Development.json
 
 # Test results
 TestResults/
+
+# Claude Code local settings (may contain personal preferences / MCP secrets)
+.claude/settings.local.json

@@ -1,6 +1,10 @@
+using System.Security.Claims;
 using System.Text;
+using System.Threading.RateLimiting;
 using FluentValidation;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
@@ -95,6 +99,68 @@ try
     builder.Services.AddScoped<ICharacterSheetRepository, CharacterSheetRepository>();
     builder.Services.AddScoped<ICharacterSheetService, CharacterSheetService>();
 
+    // ── Rate limiting ──────────────────────────────────────────
+    builder.Services
+        .AddOptions<RateLimitingOptions>()
+        .BindConfiguration(RateLimitingOptions.Section)
+        .ValidateDataAnnotations()
+        .ValidateOnStart();
+
+    builder.Services.AddRateLimiter(options =>
+    {
+        // Read limits from config at startup — values are static and don't change at runtime.
+        var rl = builder.Configuration
+            .GetSection(RateLimitingOptions.Section)
+            .Get<RateLimitingOptions>() ?? new RateLimitingOptions();
+
+        options.OnRejected = async (context, ct) =>
+        {
+            context.HttpContext.Response.StatusCode  = StatusCodes.Status429TooManyRequests;
+            context.HttpContext.Response.ContentType = "application/problem+json";
+
+            context.HttpContext.Response.Headers.RetryAfter =
+                context.Lease.TryGetMetadata(MetadataName.RetryAfter, out var retryAfter)
+                    ? ((int)retryAfter.TotalSeconds).ToString()
+                    : "1"; // token bucket replenishes continuously; 1s is a safe minimum hint
+
+            var logger = context.HttpContext.RequestServices
+                .GetRequiredService<ILogger<Program>>();
+            logger.LogWarning("Rate limit exceeded for {Path} from {RemoteIp}",
+                context.HttpContext.Request.Path,
+                context.HttpContext.Connection.RemoteIpAddress);
+
+            await context.HttpContext.Response.WriteAsJsonAsync(new ProblemDetails
+            {
+                Status   = StatusCodes.Status429TooManyRequests,
+                Detail   = "Too many requests. Please slow down.",
+                Instance = context.HttpContext.Request.Path
+            }, ct);
+        };
+
+        // Fixed-window limit on the unauthenticated token endpoint, keyed by client IP.
+        options.AddPolicy("token", httpContext =>
+            RateLimitPartition.GetFixedWindowLimiter(
+                partitionKey: httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown",
+                factory: _ => new FixedWindowRateLimiterOptions
+                {
+                    PermitLimit = rl.TokenPermitLimit,
+                    Window      = TimeSpan.FromMinutes(rl.TokenWindowMinutes),
+                    QueueLimit  = 0
+                }));
+
+        // Token bucket for authenticated endpoints, keyed by JWT sub claim.
+        options.AddPolicy("authenticated", httpContext =>
+            RateLimitPartition.GetTokenBucketLimiter(
+                partitionKey: httpContext.User.FindFirstValue(ClaimTypes.NameIdentifier) ?? "anonymous",
+                factory: _ => new TokenBucketRateLimiterOptions
+                {
+                    TokenLimit          = rl.AuthBucketCapacity,
+                    ReplenishmentPeriod = TimeSpan.FromSeconds(1),
+                    TokensPerPeriod     = rl.AuthReplenishPerSecond,
+                    QueueLimit          = 0
+                }));
+    });
+
     // ── Health checks ──────────────────────────────────────────
     builder.Services.AddHealthChecks();
 
@@ -112,7 +178,14 @@ try
 
     app.UseSerilogRequestLogging();
     app.UseHttpsRedirection();
+
+    // ── If deployed behind a load balancer / reverse proxy, uncomment this so
+    //    RemoteIpAddress reflects the real client IP via X-Forwarded-For.
+    //    Also configure KnownProxies/KnownNetworks in ForwardedHeadersOptions.
+    // app.UseForwardedHeaders();
+
     app.UseAuthentication();
+    app.UseRateLimiter();      // After UseAuthentication so the "authenticated" policy can read HttpContext.User
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/api/v1/health");

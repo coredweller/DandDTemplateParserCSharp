@@ -3,6 +3,7 @@ using System.Security.Claims;
 using System.Text;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using DandDTemplateParserCSharp.Options;
@@ -14,6 +15,7 @@ namespace DandDTemplateParserCSharp.Controllers;
 public sealed class AuthController(IOptions<JwtOptions> jwtOptions, ILogger<AuthController> logger) : ControllerBase
 {
     [AllowAnonymous]
+    [EnableRateLimiting("token")]
     [HttpPost("token")]
     [ProducesResponseType(StatusCodes.Status200OK, Type = typeof(TokenResponse))]
     [ProducesResponseType(StatusCodes.Status401Unauthorized)]

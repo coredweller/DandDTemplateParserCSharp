@@ -1,11 +1,13 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using DandDTemplateParserCSharp.Domain;
 using DandDTemplateParserCSharp.Services;
 
 namespace DandDTemplateParserCSharp.Controllers;
 
 [Authorize]
+[EnableRateLimiting("authenticated")]
 [ApiController]
 [Route("api/v1/sheets")]
 public sealed class CharacterSheetsController(ICharacterSheetService service) : ControllerBase
