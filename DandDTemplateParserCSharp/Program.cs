@@ -1,4 +1,9 @@
+using System.Text;
 using FluentValidation;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
+using Microsoft.OpenApi.Models;
 using DandDTemplateParserCSharp.Middleware;
 using DandDTemplateParserCSharp.Options;
 using DandDTemplateParserCSharp.Repositories;
@@ -22,7 +27,28 @@ try
     // ── Controllers + API explorer ─────────────────────────────
     builder.Services.AddControllers();
     builder.Services.AddEndpointsApiExplorer();
-    builder.Services.AddSwaggerGen();
+    builder.Services.AddSwaggerGen(options =>
+    {
+        options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
+        {
+            In = ParameterLocation.Header,
+            Name = "Authorization",
+            Type = SecuritySchemeType.Http,
+            Scheme = "bearer",
+            BearerFormat = "JWT",
+            Description = "Enter your JWT token. Obtain it via POST /api/v1/auth/token."
+        });
+        options.AddSecurityRequirement(new OpenApiSecurityRequirement
+        {
+            {
+                new OpenApiSecurityScheme
+                {
+                    Reference = new OpenApiReference { Type = ReferenceType.SecurityScheme, Id = "Bearer" }
+                },
+                Array.Empty<string>()
+            }
+        });
+    });
 
     // ── ProblemDetails (RFC 7807) ──────────────────────────────
     builder.Services.AddProblemDetails();
@@ -33,6 +59,34 @@ try
         .BindConfiguration(DatabaseOptions.Section)
         .ValidateDataAnnotations()
         .ValidateOnStart();
+
+    builder.Services
+        .AddOptions<JwtOptions>()
+        .BindConfiguration(JwtOptions.Section)
+        .ValidateDataAnnotations()
+        .ValidateOnStart();
+
+    // ── Authentication ───────────────────────────────────────
+    builder.Services
+        .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
+        .AddJwtBearer();
+
+    builder.Services.AddOptions<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme)
+        .Configure<IOptions<JwtOptions>>((bearerOptions, jwtOpts) =>
+        {
+            var jwt = jwtOpts.Value;
+            bearerOptions.TokenValidationParameters = new TokenValidationParameters
+            {
+                ValidateIssuer = true,
+                ValidateAudience = true,
+                ValidateLifetime = true,
+                ValidateIssuerSigningKey = true,
+                ValidIssuer = jwt.Issuer,
+                ValidAudience = jwt.Audience,
+                IssuerSigningKey = new SymmetricSecurityKey(
+                    Encoding.UTF8.GetBytes(jwt.SigningKey))
+            };
+        });
 
     // ── FluentValidation ───────────────────────────────────────
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
@@ -58,6 +112,7 @@ try
 
     app.UseSerilogRequestLogging();
     app.UseHttpsRedirection();
+    app.UseAuthentication();
     app.UseAuthorization();
     app.MapControllers();
     app.MapHealthChecks("/api/v1/health");

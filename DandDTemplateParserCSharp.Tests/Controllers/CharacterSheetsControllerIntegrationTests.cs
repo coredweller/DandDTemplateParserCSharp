@@ -1,10 +1,15 @@
+using System.IdentityModel.Tokens.Jwt;
 using System.Net;
+using System.Net.Http.Headers;
 using System.Net.Http.Json;
+using System.Security.Claims;
+using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.IdentityModel.Tokens;
 using Xunit;
 using DandDTemplateParserCSharp.Controllers;
 using DandDTemplateParserCSharp.Domain;
@@ -12,16 +17,30 @@ using DandDTemplateParserCSharp.Repositories;
 
 namespace DandDTemplateParserCSharp.Tests.Controllers;
 
+// ── Test constants ────────────────────────────────────────────────────────────
+internal static class TestJwtConstants
+{
+    internal const string SigningKey = "test-signing-key-exactly-32-chars!!";
+    internal const string ApiSecret = "test-api-secret";
+    internal const string Issuer = "DandDTemplateParserCSharp";
+    internal const string Audience = "DandDTemplateParserCSharp";
+}
+
 // ── Custom factory — replaces Dapper repository with in-memory stub ──────────
 public sealed class ApiFactory : WebApplicationFactory<Program>
 {
     protected override void ConfigureWebHost(IWebHostBuilder builder)
     {
-        // Satisfy ValidateOnStart() without a real SQL Server
+        // Satisfy ValidateOnStart() without a real SQL Server or real JWT secrets
         builder.ConfigureAppConfiguration((_, config) =>
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Database:ConnectionString"] = "Server=test-stub;Database=test"
+                ["Database:ConnectionString"] = "Server=test-stub;Database=test",
+                ["Jwt:SigningKey"]            = TestJwtConstants.SigningKey,
+                ["Jwt:ApiSecret"]            = TestJwtConstants.ApiSecret,
+                ["Jwt:Issuer"]               = TestJwtConstants.Issuer,
+                ["Jwt:Audience"]             = TestJwtConstants.Audience,
+                ["Jwt:ExpirationMinutes"]    = "60"
             }));
 
         builder.ConfigureServices(services =>
@@ -34,6 +53,32 @@ public sealed class ApiFactory : WebApplicationFactory<Program>
             // Singleton so renders persists across requests within a single test
             services.AddSingleton<ICharacterSheetRepository, InMemoryCharacterSheetRepository>();
         });
+    }
+
+    /// <summary>Creates a valid JWT for integration tests using the test signing key.</summary>
+    internal static string CreateTestToken()
+    {
+        var keyBytes = Encoding.UTF8.GetBytes(TestJwtConstants.SigningKey);
+        var securityKey = new SymmetricSecurityKey(keyBytes);
+        var credentials = new SigningCredentials(securityKey, SecurityAlgorithms.HmacSha256);
+
+        var now = DateTime.UtcNow;
+
+        var claims = new[]
+        {
+            new Claim(JwtRegisteredClaimNames.Sub, "api-user"),
+            new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+        };
+
+        var token = new JwtSecurityToken(
+            issuer: TestJwtConstants.Issuer,
+            audience: TestJwtConstants.Audience,
+            claims: claims,
+            notBefore: now,
+            expires: now.AddMinutes(60),
+            signingCredentials: credentials);
+
+        return new JwtSecurityTokenHandler().WriteToken(token);
     }
 }
 
@@ -81,11 +126,25 @@ public sealed class InMemoryCharacterSheetRepository : ICharacterSheetRepository
     }
 }
 
-// ── Tests ─────────────────────────────────────────────────────────────────────
+// ── Sequences integration test classes so WebApplicationFactory instances
+//    are not constructed in parallel (HostFactoryResolver is not re-entrant).
+[CollectionDefinition("Integration")]
+public sealed class IntegrationFixtures;
+
+// ── Character Sheets Integration Tests ───────────────────────────────────────
+[Collection("Integration")]
 public sealed class CharacterSheetsControllerIntegrationTests(ApiFactory factory)
     : IClassFixture<ApiFactory>
 {
-    private readonly HttpClient _client = factory.CreateClient();
+    private readonly HttpClient _client = CreateAuthenticatedClient(factory);
+
+    private static HttpClient CreateAuthenticatedClient(ApiFactory factory)
+    {
+        var client = factory.CreateClient();
+        client.DefaultRequestHeaders.Authorization =
+            new AuthenticationHeaderValue("Bearer", ApiFactory.CreateTestToken());
+        return client;
+    }
 
     // ── POST /api/v1/sheets/general ─────────────────────────────────────────
 
@@ -280,3 +339,4 @@ public sealed class CharacterSheetsControllerIntegrationTests(ApiFactory factory
         Level         = 20
     };
 }
+

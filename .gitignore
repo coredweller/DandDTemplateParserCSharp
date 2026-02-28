@@ -64,5 +64,8 @@ launchSettings.json
 .env
 *.env.*
 
+# Local development settings (contain real credentials)
+appsettings.Development.json
+
 # Test results
 TestResults/

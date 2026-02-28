@@ -1,9 +1,11 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using DandDTemplateParserCSharp.Domain;
 using DandDTemplateParserCSharp.Services;
 
 namespace DandDTemplateParserCSharp.Controllers;
 
+[Authorize]
 [ApiController]
 [Route("api/v1/sheets")]
 public sealed class CharacterSheetsController(ICharacterSheetService service) : ControllerBase
