@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
+using DandDTemplateParserCSharp.HealthChecks;
 using DandDTemplateParserCSharp.Middleware;
 using DandDTemplateParserCSharp.Options;
 using DandDTemplateParserCSharp.Repositories;
@@ -122,6 +123,7 @@ try
     builder.Services.AddValidatorsFromAssemblyContaining<Program>();
 
     // ── Application services ───────────────────────────────────
+    builder.Services.AddScoped<IHealthCheckRepository, HealthCheckRepository>();
     builder.Services.AddScoped<ICharacterSheetRepository, CharacterSheetRepository>();
     builder.Services.AddScoped<ICharacterSheetService, CharacterSheetService>();
 
@@ -188,7 +190,8 @@ try
     });
 
     // ── Health checks ──────────────────────────────────────────
-    builder.Services.AddHealthChecks();
+    builder.Services.AddHealthChecks()
+        .AddCheck<SqlServerHealthCheck>("sql-server");
 
     var app = builder.Build();
 
