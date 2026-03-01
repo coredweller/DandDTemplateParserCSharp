@@ -23,6 +23,10 @@ try
 {
     var builder = WebApplication.CreateBuilder(args);
 
+    // ── Request size limit ─────────────────────────────────────
+    builder.WebHost.ConfigureKestrel(options =>
+        options.Limits.MaxRequestBodySize = 64 * 1024); // 64 KB — generous for any JSON character sheet
+
     // ── Logging ────────────────────────────────────────────────
     builder.Host.UseSerilog((ctx, services, config) =>
         config.ReadFrom.Configuration(ctx.Configuration)
