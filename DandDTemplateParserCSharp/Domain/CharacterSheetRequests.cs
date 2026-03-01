@@ -1,6 +1,11 @@
 namespace DandDTemplateParserCSharp.Domain;
 
-public sealed record AbilityScore(int Score, string Modifier);
+public sealed record AbilityScore(int Score)
+{
+    public string Modifier { get; } = FormatModifier((int)Math.Floor((Score - 10) / 2.0));
+
+    private static string FormatModifier(int mod) => mod >= 0 ? $"+{mod}" : $"{mod}";
+}
 
 public sealed record AbilityScores(
     AbilityScore? Strength,
