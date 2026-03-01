@@ -150,12 +150,12 @@ public sealed class CharacterSheetRepository(
         string   character_name,
         int      level,
         string   response_html,
-        DateTime created_at);
+        DateTimeOffset created_at);
 
     private sealed record SummaryRow(
         string   id,
         string   sheet_type,
         string   character_name,
         int      level,
-        DateTime created_at);
+        DateTimeOffset created_at);
 }

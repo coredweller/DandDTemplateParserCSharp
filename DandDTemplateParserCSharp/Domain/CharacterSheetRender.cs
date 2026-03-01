@@ -7,11 +7,11 @@ public sealed class CharacterSheetRender
     public string   CharacterName { get; }
     public int      Level         { get; }
     public string   ResponseHtml  { get; }
-    public DateTime CreatedAt     { get; }
+    public DateTimeOffset CreatedAt     { get; }
 
     private CharacterSheetRender(
         Guid id, string sheetType, string characterName,
-        int level, string responseHtml, DateTime createdAt)
+        int level, string responseHtml, DateTimeOffset createdAt)
     {
         Id            = id;
         SheetType     = sheetType;
@@ -23,10 +23,10 @@ public sealed class CharacterSheetRender
 
     public static CharacterSheetRender Create(
         string sheetType, string characterName, int level, string responseHtml) =>
-        new(Guid.NewGuid(), sheetType, characterName, level, responseHtml, DateTime.UtcNow);
+        new(Guid.NewGuid(), sheetType, characterName, level, responseHtml, DateTimeOffset.UtcNow);
 
     public static CharacterSheetRender Reconstitute(
         Guid id, string sheetType, string characterName,
-        int level, string responseHtml, DateTime createdAt) =>
+        int level, string responseHtml, DateTimeOffset createdAt) =>
         new(id, sheetType, characterName, level, responseHtml, createdAt);
 }

@@ -6,4 +6,4 @@ public sealed record CharacterSheetSummary(
     string   SheetType,
     string   CharacterName,
     int      Level,
-    DateTime CreatedAt);
+    DateTimeOffset CreatedAt);

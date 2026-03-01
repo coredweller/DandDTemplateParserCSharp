@@ -192,7 +192,7 @@ public sealed class CharacterSheetServiceTests
     [Fact]
     public async Task GetByLevelAsync_WithValidLevel_ReturnsRepositoryResults()
     {
-        var summary = new CharacterSheetSummary(Guid.NewGuid(), "general", "Hero", 5, DateTime.UtcNow);
+        var summary = new CharacterSheetSummary(Guid.NewGuid(), "general", "Hero", 5, DateTimeOffset.UtcNow);
         _repository.GetByLevelAsync(5, Arg.Any<PageRequest>(), Arg.Any<CancellationToken>())
                    .Returns(Result<IReadOnlyList<CharacterSheetSummary>, CharacterSheetError.DatabaseError>.Success([summary]));
 
