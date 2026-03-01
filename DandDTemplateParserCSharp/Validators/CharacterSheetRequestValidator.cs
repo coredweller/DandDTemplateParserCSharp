@@ -29,6 +29,10 @@ public sealed class GeneralSheetRequestValidator : AbstractValidator<GeneralShee
         RuleFor(x => x.Actions)
             .Must(d => d is null || d.Count <= 10)
             .WithMessage("Actions must not exceed 10 entries.");
+
+        RuleFor(x => x.AbilityScores!)
+            .SetValidator(new AbilityScoresValidator())
+            .When(x => x.AbilityScores is not null);
     }
 }
 
@@ -58,5 +62,30 @@ public sealed class LegendarySheetRequestValidator : AbstractValidator<Legendary
         RuleFor(x => x.LegendaryActions)
             .Must(la => la is null || la.Options is null || la.Options.Count <= 10)
             .WithMessage("LegendaryActions.Options must not exceed 10 entries.");
+    }
+}
+
+public sealed class AbilityScoreValidator : AbstractValidator<AbilityScore>
+{
+    public AbilityScoreValidator()
+    {
+        RuleFor(x => x.Score)
+            .InclusiveBetween(1, 30)
+            .WithMessage("Ability score must be between 1 and 30.");
+    }
+}
+
+public sealed class AbilityScoresValidator : AbstractValidator<AbilityScores>
+{
+    private static readonly AbilityScoreValidator ScoreValidator = new();
+
+    public AbilityScoresValidator()
+    {
+        RuleFor(x => x.Strength!).SetValidator(ScoreValidator).When(x => x.Strength is not null);
+        RuleFor(x => x.Dexterity!).SetValidator(ScoreValidator).When(x => x.Dexterity is not null);
+        RuleFor(x => x.Constitution!).SetValidator(ScoreValidator).When(x => x.Constitution is not null);
+        RuleFor(x => x.Intelligence!).SetValidator(ScoreValidator).When(x => x.Intelligence is not null);
+        RuleFor(x => x.Wisdom!).SetValidator(ScoreValidator).When(x => x.Wisdom is not null);
+        RuleFor(x => x.Charisma!).SetValidator(ScoreValidator).When(x => x.Charisma is not null);
     }
 }
