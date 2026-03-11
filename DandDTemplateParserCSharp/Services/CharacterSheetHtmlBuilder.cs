@@ -75,6 +75,18 @@ internal static class CharacterSheetHtmlBuilder
         /* ── Divider ── */
         .divider { border: none; border-top: 2px solid #c8a951; margin: 0 1.2rem .8rem; }
 
+        /* ── Spellcasting ── */
+        .spellcasting-entry { padding: .4rem 0 !important; }
+        .spell-preamble { margin: .3rem 0 .5rem; color: #333; font-style: italic; }
+        .spell-level-row { display: flex; align-items: flex-start; gap: .6rem; padding: .25rem 0;
+                           border-bottom: 1px solid #e8dcc8; flex-wrap: wrap; }
+        .spell-level-row:last-child { border-bottom: none; }
+        .spell-level-label { font-weight: bold; color: #7b1f1f; font-size: .78rem; min-width: 9rem;
+                             flex-shrink: 0; padding-top: .15rem; }
+        .spell-tags { display: flex; flex-wrap: wrap; gap: .25rem; }
+        .spell-tag { background: #f5edda; border: 1px solid #c8a951; border-radius: 3px;
+                     padding: .1rem .4rem; font-size: .78rem; color: #2c1a0e; }
+
         /* ── Notes ── */
         .notes-body { padding: .5rem; font-size: .88rem; line-height: 1.6;
                       background: #faf5e8; border: 1px solid #e0d0a8; min-height: 4rem; }
@@ -275,8 +287,55 @@ internal static class CharacterSheetHtmlBuilder
         sb.AppendLine($"  <div class=\"section-title\">{Enc(title)}</div>");
         sb.AppendLine("  <div class=\"section-body\"><ul class=\"kv-list\">");
         foreach (var (k, v) in dict)
-            sb.AppendLine($"    <li><span class=\"kv-key\">{Enc(k)}:</span> {Enc(v)}</li>");
+        {
+            if (k.Equals("Spellcasting", StringComparison.OrdinalIgnoreCase))
+                WriteSpellcastingEntry(sb, v);
+            else
+                sb.AppendLine($"    <li><span class=\"kv-key\">{Enc(k)}:</span> {Enc(v)}</li>");
+        }
         sb.AppendLine("  </ul></div></div></div>");
+    }
+
+    private static void WriteSpellcastingEntry(StringBuilder sb, string value)
+    {
+        var parts = value.Split("\n\n", StringSplitOptions.RemoveEmptyEntries);
+
+        sb.AppendLine("    <li class=\"spellcasting-entry\">");
+        sb.AppendLine("      <span class=\"kv-key\">Spellcasting:</span>");
+
+        if (parts.Length == 0) { sb.AppendLine("    </li>"); return; }
+
+        sb.AppendLine($"      <div class=\"spell-preamble\">{Enc(parts[0].Trim())}</div>");
+
+        if (parts.Length > 1)
+        {
+            sb.AppendLine("      <div class=\"spell-levels\">");
+            for (int i = 1; i < parts.Length; i++)
+            {
+                var line = parts[i].Trim();
+                var colonIdx = line.IndexOf(':');
+                if (colonIdx < 0)
+                {
+                    sb.AppendLine($"        <div class=\"spell-level-row\"><span>{Enc(line)}</span></div>");
+                    continue;
+                }
+
+                var levelLabel = line[..colonIdx].Trim();
+                var spellsRaw  = line[(colonIdx + 1)..].Trim();
+                var spells     = spellsRaw.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+                sb.AppendLine("        <div class=\"spell-level-row\">");
+                sb.AppendLine($"          <span class=\"spell-level-label\">{Enc(levelLabel)}</span>");
+                sb.AppendLine("          <div class=\"spell-tags\">");
+                foreach (var spell in spells)
+                    sb.AppendLine($"            <span class=\"spell-tag\">{Enc(spell)}</span>");
+                sb.AppendLine("          </div>");
+                sb.AppendLine("        </div>");
+            }
+            sb.AppendLine("      </div>");
+        }
+
+        sb.AppendLine("    </li>");
     }
 
     private static void WriteTextSection(StringBuilder sb, string title, string? text)
